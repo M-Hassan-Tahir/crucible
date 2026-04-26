@@ -52,6 +52,10 @@ Built for **Hackathon Challenge 04 — The AI Scientist**.
 | LLM | Any OpenAI-compatible endpoint (default: `openai/gpt-oss-120b` via OpenRouter free tier) |
 | Literature | Semantic Scholar + arXiv + Tavily (all free / freemium) |
 
+## Deployment (Render + Vercel)
+
+The API is a **separate** Python service. The UI is a static Vite build on Vercel with `VITE_API_BASE` pointing at that API. Step-by-step: [docs/DEPLOY-RENDER-VERCEL.md](docs/DEPLOY-RENDER-VERCEL.md). A Render Blueprint is in [`render.yaml`](render.yaml) at the repo root.
+
 ## Quickstart
 
 Two terminals.
@@ -79,17 +83,21 @@ Then open <http://localhost:5173>.
 
 ## Environment variables
 
-Create `backend/.env` from `backend/.env.example`:
+**Full guide (local + Vercel + API host):** [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)
+
+**Backend** — create `backend/.env` from `backend/.env.example` (PowerShell: `Copy-Item backend\.env.example backend\.env`).
 
 | Variable | Required? | What it's for |
 |---|---|---|
-| `OPENAI_API_KEY` | **yes** | Auth token for any OpenAI-compatible LLM (we use OpenRouter; key starts with `sk-or-v1-...`) |
+| `OPENAI_API_KEY` | **yes** (for plan generation) | Any OpenAI-compatible host (OpenAI `sk-proj-...`, OpenRouter `sk-or-v1-...`, etc.) |
 | `OPENAI_BASE_URL` | optional | e.g. `https://openrouter.ai/api/v1`. Omit for the real OpenAI API |
 | `OPENAI_MODEL` | optional | Default: `gpt-4o-mini`. We use `openai/gpt-oss-120b:free` on OpenRouter |
-| `TAVILY_API_KEY` | optional | Enables live web search; without it, only academic refs are returned |
+| `TAVILY_API_KEY` | optional | **Set on the API server** for live web search in Literature QC; without it, only Semantic Scholar + arXiv |
 | `AI_SCIENTIST_DB_PATH` | optional | Path to the SQLite file. Default: `ai_scientist.sqlite` |
 
-`backend/.env` is gitignored. **Never commit it.**
+**Frontend** — for production, set `VITE_API_BASE` in `frontend/.env` (from `frontend/.env.example`) to your **public** API URL, then `npm run build`. Vite bakes it in at build time.
+
+`backend/.env` and `frontend/.env` are gitignored. **Never commit real keys.**
 
 ## Demo script (90 seconds)
 
