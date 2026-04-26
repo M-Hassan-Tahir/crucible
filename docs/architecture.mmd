@@ -1,0 +1,58 @@
+---
+config:
+  layout: elk
+  theme: base
+  themeVariables:
+    fontFamily: Inter, ui-sans-serif, system-ui, sans-serif
+    fontSize: 16px
+    primaryColor: '#0f1623'
+    primaryTextColor: '#e8eef9'
+    primaryBorderColor: '#2a3245'
+    lineColor: '#7c9cff'
+    tertiaryColor: '#11192a'
+    clusterBkg: '#0b1220'
+    clusterBorder: '#2a3245'
+---
+flowchart LR
+  classDef api fill:#11192a,stroke:#2a3245,color:#e8eef9,stroke-width:1px,rx:8,ry:8
+  classDef ext fill:#0e2233,stroke:#1f4361,color:#e8eef9,stroke-width:1px,rx:10,ry:10
+  classDef store fill:#1a1530,stroke:#3b2c64,color:#e8eef9,stroke-width:1px,rx:6,ry:6
+  classDef ui fill:#102036,stroke:#2a4978,color:#e8eef9,stroke-width:1.5px,rx:10,ry:10
+
+  UI["<b>Crucible UI</b><br/>React + Vite<br/>localhost:5173"]:::ui
+
+  subgraph SERVER ["FastAPI backend &nbsp;(localhost:8001)"]
+    direction TB
+    QC["POST /literature-qc"]:::api
+    PLAN["POST /generate-plan"]:::api
+    FB["POST /submit-feedback"]:::api
+    HIST["GET /history<br/>GET /admin · /settings · /domains · /feedback"]:::api
+  end
+
+  subgraph EXT ["Live external APIs"]
+    direction TB
+    TAV["Tavily<br/><i>web search</i>"]:::ext
+    SS["Semantic Scholar<br/><i>papers · DOI · authors</i>"]:::ext
+    AX["arXiv<br/><i>preprints · DOI · authors</i>"]:::ext
+    LLM["OpenRouter<br/>openai/gpt-oss-120b<br/><i>OpenAI-compatible</i>"]:::ext
+  end
+
+  DB[("SQLite<br/>domains · hypotheses<br/>literature_qc · plans · feedback")]:::store
+
+  UI -- "hypothesis" --> QC
+  QC -. "parallel<br/>asyncio.gather" .-> TAV
+  QC -. "parallel" .-> SS
+  QC -. "parallel" .-> AX
+  QC -- "novelty score<br/>+ refs" --> DB
+
+  UI -- "generate plan" --> PLAN
+  PLAN -- "nearest_feedback<br/>(TF-IDF cosine)" --> DB
+  PLAN -- "grounded prompt<br/>+ few-shot corrections" --> LLM
+  LLM -- "JSON plan" --> PLAN
+  PLAN -- "save versioned plan" --> DB
+
+  UI -- "inline correction" --> FB
+  FB -- "TF-IDF embed" --> DB
+
+  UI -- "browse · admin" --> HIST
+  HIST --> DB

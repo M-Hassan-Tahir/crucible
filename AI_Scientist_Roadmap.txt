@@ -1,0 +1,94 @@
+The AI Scientist
+Hackathon Project Roadmap
+From plain-English hypothesis → lab-ready experiment plan
+1. Project Overview
+The AI Scientist transforms a researcher's plain-English hypothesis into a structured, lab-ready experiment plan. It runs a multi-stage LLM pipeline that performs literature novelty checks, generates a full protocol with materials/budget/timeline, and learns from scientist corrections via a closed feedback loop.
+Core Value Proposition
+Reduces planning time for novel experiments from days to minutes.
+Grounds plans in real literature with citations (Semantic Scholar + arXiv).
+Outputs structured JSON usable by downstream lab tools.
+Improves over time using domain-specific scientist feedback as few-shot examples.
+2. Tech Stack
+3. LLM Strategy
+Models & Roles
+Prompting Approach
+System prompts are domain-aware (loaded from `domains` table).
+Few-shot examples injected from `feedback` table for the matching domain.
+All generation calls request structured JSON output (response_format: json_schema).
+Streaming used in UI for plan generation to show progress.
+4. Database Schema
+hypotheses
+id uuid pk, user_id uuid, text text, domain_id uuid, status enum, created_at
+literature_qc
+id uuid pk, hypothesis_id uuid fk, novelty_score float, summary text, references jsonb, created_at
+plans
+id uuid pk, hypothesis_id uuid fk, protocol jsonb, materials jsonb, budget jsonb, timeline jsonb, model_used text, version int, created_at
+feedback
+id uuid pk, plan_id uuid fk, scientist_id uuid, field text, original jsonb, corrected jsonb, note text, created_at
+domains
+id uuid pk, name text, system_prompt text, embedding vector(1536)
+All tables use RLS. Roles stored in separate `user_roles` table (admin / scientist / viewer).
+5. Plan JSON Schema (contract)
+{
+  "protocol":  [{ "step": 1, "description": "...", "source_url": "..." }],
+  "materials": [{ "name": "...", "supplier": "Sigma-Aldrich", "catalog_number": "...", "quantity": "...", "unit_cost_usd": 0 }],
+  "budget":    [{ "item": "...", "cost_usd": 0 }],
+  "timeline":  [{ "phase": "...", "week_start": 1, "week_end": 2, "owner": "..." }],
+  "risks":     [{ "risk": "...", "mitigation": "..." }],
+  "novelty":   { "score": 0.0, "rationale": "...", "references": [] }
+}
+6. Build Roadmap (paste into Cursor)
+Phase 0 — Setup (30 min)
+Init Lovable project, enable Lovable Cloud.
+Configure Tailwind tokens + shadcn theme (semantic HSL colors only).
+Create routes: /, /new, /plan/:id, /history, /admin.
+Phase 1 — Auth & Schema (1 hr)
+Enable email auth in Lovable Cloud.
+Create migrations for all 5 tables + RLS policies.
+Create `user_roles` table + `has_role()` security definer function.
+Seed `domains` with 3-5 starter domains (biology, chemistry, ML, materials).
+Phase 2 — UI Scaffolding (2 hr)
+Landing page with hero + 'New Hypothesis' CTA.
+/new: textarea for hypothesis + domain selector + submit.
+/plan/:id: tabbed view (Novelty | Protocol | Materials | Budget | Timeline | Risks).
+Inline-editable cells in each table; 'Save correction' writes to `feedback`.
+/history: list of past plans for the user.
+Phase 3 — Edge Functions (3 hr)
+literature-qc
+Input: hypothesis text + domain.
+Calls Semantic Scholar + arXiv search APIs in parallel.
+Sends top 10 abstracts to Gemini 2.5 Flash for novelty scoring.
+Returns + persists `literature_qc` row.
+generate-plan
+Loads domain system prompt + top-3 nearest feedback few-shots (vector search).
+Calls GPT-5 / Gemini 2.5 Pro with JSON schema.
+Streams response back to UI; persists final `plans` row.
+submit-feedback
+Stores diff in `feedback` table; recomputes embedding for retrieval.
+Phase 4 — Feedback Loop (2 hr)
+On plan view, every field has an edit button.
+Edits captured as { field, original, corrected, note }.
+Embed the parent hypothesis; store with feedback row.
+Next generation in same domain pulls top-K similar feedbacks as few-shots.
+Phase 5 — Polish & Demo (1.5 hr)
+Loading skeletons + streaming indicators.
+Export plan as PDF / Markdown.
+Admin page: view all feedback, mark as 'gold' for prompt curation.
+Seed a demo hypothesis for judges (e.g. CRISPR knock-in screen).
+7. External APIs
+8. Secrets Required
+LOVABLE_API_KEY — auto-provisioned by Lovable Cloud.
+SEMANTIC_SCHOLAR_API_KEY — optional, raises rate limit.
+No other secrets needed (arXiv is public, Supabase is built-in).
+9. Deliverables Checklist
+Working hypothesis → plan flow end-to-end.
+At least 1 visible novelty check with real citations.
+Inline corrections persisted and visibly affecting the next generation.
+Structured JSON downloadable per plan.
+Demo script + 1 seeded example.
+README explaining architecture + LLM choices.
+10. Stretch Goals
+Voice input for hypotheses (Web Speech API).
+Cost optimizer: swap Pro → Flash when feedback-similarity is high.
+Multi-agent debate: 2 models critique each other's plan.
+Lab-equipment integration mock (Opentrons protocol export).
